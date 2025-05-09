@@ -1,24 +1,21 @@
-cat > index.html << 'EOF'
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
   <title>Voice Craft API Docs</title>
-  <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css" />
+  <link rel="icon" href="logo.png" />
+  <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+  <style>
+    body { margin: 0; }
+    .redoc-wrap { max-width: 1200px; margin: auto; }
+  </style>
 </head>
 <body>
-  <div id="swagger-ui"></div>
-  <script>
-    window.onload = () => {
-      SwaggerUIBundle({
-        url: "openapi.yaml",
-        dom_id: "#swagger-ui",
-        presets: [SwaggerUIBundle.presets.apis],
-        layout: "BaseLayout",
-      });
-    };
-  </script>
+  <div class="redoc-wrap">
+    <redoc spec-url="openapi.yaml"></redoc>
+  </div>
+  <script>Redoc.init('openapi.yaml', {
+    theme: { colors: { primary: { main: '#2c3e50' } } },
+    scrollYOffset: 'header'
+  });</script>
 </body>
 </html>
-EOF
