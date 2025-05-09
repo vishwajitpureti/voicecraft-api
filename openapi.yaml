@@ -1,0 +1,283 @@
+openapi: 3.0.3
+info:
+  title: Voice Craft API
+  version: "1.0.0"
+  description: |
+    Voice Craft provides a RESTful API to initiate calls, retrieve call status,
+    list calls, and configure webhooks. Authentication is via JWT tokens.
+  contact:
+    name: Voice Craft Support
+    email: api-support@voicecraftai.com
+servers:
+  - url: https://api.voicecraftai.com
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CallRequest:
+      type: object
+      properties:
+        phone_number:
+          type: string
+          description: E.164 formatted phone number
+          example: "+14155552671"
+        caller_id:
+          type: string
+          description: Verified caller ID to display
+          example: "+12065551234"
+        message_template_id:
+          type: string
+          description: ID of the voice message template to play
+          example: "welcome_message"
+        async:
+          type: boolean
+          description: If true, call is initiated asynchronously and returns immediately
+          default: false
+    CallStatus:
+      type: object
+      properties:
+        call_id:
+          type: string
+          example: "abc123"
+        status:
+          type: string
+          example: completed
+        started_at:
+          type: string
+          format: date-time
+          example: "2025-05-08T14:30:00Z"
+        ended_at:
+          type: string
+          format: date-time
+          example: "2025-05-08T14:32:30Z"
+        duration_seconds:
+          type: integer
+          example: 150
+    CallsList:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 50
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/CallStatus'
+    WebhookRegistration:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "wh_456"
+        url:
+          type: string
+          format: uri
+          example: "https://clientapp.com/webhook"
+        events:
+          type: array
+          items:
+            type: string
+          example: ["completed", "failed"]
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-05-09T10:00:00Z"
+paths:
+  /api/v1/authenticate:
+    post:
+      summary: Acquire Authentication Token
+      description: Authenticate using your API key to receive a JWT token valid for 1 hour.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                  example: your_api_key_here
+      responses:
+        '200':
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  expires_at:
+                    type: string
+                    format: date-time
+                  company_name:
+                    type: string
+        '400':
+          description: Bad Request – missing or invalid body
+        '401':
+          description: Unauthorized – invalid API key
+        '403':
+          description: Forbidden – insufficient balance
+  /api/v1/trigger-call:
+    post:
+      summary: Initiate a Call
+      description: Trigger an outbound call to the specified phone number.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallRequest'
+      responses:
+        '202':
+          description: Call accepted for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  call_id:
+                    type: string
+                  status:
+                    type: string
+                    example: queued
+        '400':
+          description: Invalid request parameters
+        '401':
+          description: Unauthorized – missing or invalid token
+        '403':
+          description: Forbidden – no outbound call permissions
+  /api/v1/call-status/{call_id}:
+    get:
+      summary: Retrieve Call Status
+      description: Get the status and details for a specific call.
+      parameters:
+        - in: path
+          name: call_id
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the call
+      responses:
+        '200':
+          description: Call status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallStatus'
+        '400':
+          description: Invalid call_id supplied
+        '401':
+          description: Unauthorized – missing or invalid token
+        '404':
+          description: Call not found
+  /api/v1/calls:
+    get:
+      summary: List Calls
+      description: Retrieve a paginated list of calls with optional filtering.
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+          example: 2
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Items per page
+          example: 10
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [queued, in_progress, completed, failed]
+          description: Filter by call status
+          example: completed
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+          description: Filter calls after this date (inclusive)
+          example: "2025-05-01"
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+          description: Filter calls before this date (inclusive)
+          example: "2025-05-09"
+      responses:
+        '200':
+          description: Calls list retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallsList'
+              examples:
+                sample:
+                  summary: Sample paginated calls list
+                  value:
+                    total: 50
+                    page: 2
+                    limit: 10
+                    calls:
+                      - call_id: "abc123"
+                        status: completed
+                        started_at: "2025-05-08T14:30:00Z"
+                        ended_at: "2025-05-08T14:32:30Z"
+                        duration_seconds: 150
+                      - call_id: "def456"
+                        status: failed
+                        started_at: "2025-05-07T09:20:00Z"
+                        ended_at: "2025-05-07T09:20:30Z"
+                        duration_seconds: 30
+        '401':
+          description: Unauthorized – missing or invalid token
+  /api/v1/webhook:
+    post:
+      summary: Register Webhook for Call Status Updates
+      description: Clients can register a webhook endpoint to receive POST callbacks when call statuses change.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  description: The client endpoint to receive callbacks
+                  example: "https://clientapp.com/webhook"
+                events:
+                  type: array
+                  items:
+                    type: string
+                    enum: [queued, in_progress, completed, failed]
+                  description: List of call status events to subscribe to
+      responses:
+        '201':
+          description: Webhook registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookRegistration'
+        '400':
+          description: Invalid request parameters
+        '401':
+          description: Unauthorized – missing or invalid token
